@@ -15,39 +15,106 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    Route::get('/profile', [ProfileController::class, 'show']);
-    Route::put('/profile', [ProfileController::class, 'update']);
-    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication
+    |--------------------------------------------------------------------------
+    */
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Profile
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/dashboard', [DashboardController::class, 'index']);
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tasks
+    |--------------------------------------------------------------------------
+    */
+
+    // View tasks
     Route::get('/tasks', [TaskController::class, 'index']);
+
+    // View a single task
     Route::get('/tasks/{task}', [TaskController::class, 'show']);
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Requirements
+    |--------------------------------------------------------------------------
+    */
+
+    // View requirements of a task
     Route::get(
         '/tasks/{task}/requirements',
         [RequirementController::class, 'index']
     );
 
+    // View a single requirement
     Route::get(
         '/requirements/{requirement}',
         [RequirementController::class, 'show']
     );
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Requirement Submissions
+    |--------------------------------------------------------------------------
+    */
+
+    // View current user's submission
     Route::get(
         '/requirements/{requirement}/submission',
         [RequirementSubmissionController::class, 'show']
     );
 
+    // Submit or resubmit a requirement
     Route::post(
         '/requirements/{requirement}/submission',
         [RequirementSubmissionController::class, 'store']
     );
 
+    // View submitted file
+    Route::get(
+        '/submissions/{submission}/file',
+        [RequirementSubmissionController::class, 'file']
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Routes
+    |--------------------------------------------------------------------------
+    */
+
     Route::middleware('admin')->group(function () {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Users
+        |--------------------------------------------------------------------------
+        */
 
         Route::get(
             '/users',
@@ -69,6 +136,13 @@ Route::middleware('auth:sanctum')->group(function () {
             [UserController::class, 'destroy']
         );
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tasks - Admin
+        |--------------------------------------------------------------------------
+        */
+
         Route::post(
             '/tasks',
             [TaskController::class, 'store']
@@ -83,6 +157,13 @@ Route::middleware('auth:sanctum')->group(function () {
             '/tasks/{task}',
             [TaskController::class, 'destroy']
         );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Requirements - Admin
+        |--------------------------------------------------------------------------
+        */
 
         Route::post(
             '/tasks/{task}/requirements',
@@ -99,16 +180,26 @@ Route::middleware('auth:sanctum')->group(function () {
             [RequirementController::class, 'destroy']
         );
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Submission Management - Admin
+        |--------------------------------------------------------------------------
+        */
+
+        // View all submissions
         Route::get(
             '/submissions',
             [RequirementSubmissionController::class, 'index']
         );
 
+        // Verify submission
         Route::put(
             '/submissions/{submission}/verify',
             [RequirementSubmissionController::class, 'verify']
         );
 
+        // Reject submission
         Route::put(
             '/submissions/{submission}/reject',
             [RequirementSubmissionController::class, 'reject']

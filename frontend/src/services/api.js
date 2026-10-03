@@ -1,39 +1,32 @@
-import axios from "axios";
+const handleViewFile = async () => {
+  try {
+    const response = await api.get(
+      `/submissions/${submission.id}/file`,
+      {
+        responseType: "blob",
+      }
+    );
 
-const api = axios.create({
-  baseURL: "https://task-compliance-api.onrender.com/api",
-  headers: {
-    Accept: "application/json",
-  },
-});
+    const contentType =
+      response.headers["content-type"] || "application/octet-stream";
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+    const blob = new Blob([response.data], {
+      type: contentType,
+    });
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    const fileUrl = window.URL.createObjectURL(blob);
+
+    window.open(fileUrl, "_blank");
+
+    setTimeout(() => {
+      window.URL.revokeObjectURL(fileUrl);
+    }, 60000);
+  } catch (error) {
+    console.error("Error viewing file:", error);
+
+    alert(
+      error.response?.data?.message ||
+      "Unable to open the submitted file."
+    );
   }
-
-  return config;
-});
-
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const isLoginRequest =
-      error.config?.url?.endsWith("/login");
-
-    if (
-      error.response?.status === 401 &&
-      !isLoginRequest
-    ) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      window.location.href = "/login";
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-export default api;
+};

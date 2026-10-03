@@ -8,6 +8,7 @@ use App\Http\Resources\RequirementSubmissionResource;
 use App\Models\Requirement;
 use App\Models\RequirementSubmission;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class RequirementSubmissionController extends Controller
 {
@@ -32,10 +33,10 @@ class RequirementSubmissionController extends Controller
             'requirement_id',
             $requirement->id
         )
-        ->where('submitted_by', $user->id)
-        ->with('submitter:id,name,email')
-        ->latest()
-        ->first();
+            ->where('submitted_by', $user->id)
+            ->with('submitter:id,name,email')
+            ->latest()
+            ->first();
 
         if (!$submission) {
             return response()->json([
@@ -80,9 +81,9 @@ class RequirementSubmissionController extends Controller
             'requirement_id',
             $requirement->id
         )
-        ->where('submitted_by', $user->id)
-        ->latest()
-        ->first();
+            ->where('submitted_by', $user->id)
+            ->latest()
+            ->first();
 
         if ($existing && $existing->status === 'Verified') {
             return response()->json([
@@ -90,17 +91,79 @@ class RequirementSubmissionController extends Controller
             ], 422);
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Resubmit Rejected Submission
+        |--------------------------------------------------------------------------
+        */
+
+        if ($existing && $existing->status === 'Rejected') {
+
+            $filePath = $existing->file_path;
+
+            if ($request->hasFile('file')) {
+
+                if (
+                    $existing->file_path &&
+                    Storage::disk('public')->exists(
+                        $existing->file_path
+                    )
+                ) {
+                    Storage::disk('public')->delete(
+                        $existing->file_path
+                    );
+                }
+
+                $filePath = $request->file('file')
+                    ->store(
+                        'requirement-submissions',
+                        'public'
+                    );
+            }
+
+            $existing->update([
+                'submission_text' =>
+                    $validated['submission_text'] ?? null,
+                'file_path' => $filePath,
+                'status' => 'Submitted',
+                'submitted_at' => now(),
+                'verified_at' => null,
+            ]);
+
+            $existing->load([
+                'requirement',
+                'submitter:id,name,email'
+            ]);
+
+            return response()->json([
+                'message' =>
+                    'Requirement resubmitted successfully.',
+                'submission' =>
+                    new RequirementSubmissionResource($existing)
+            ], 200);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | New Submission
+        |--------------------------------------------------------------------------
+        */
+
         $filePath = null;
 
         if ($request->hasFile('file')) {
             $filePath = $request->file('file')
-                ->store('requirement-submissions', 'public');
+                ->store(
+                    'requirement-submissions',
+                    'public'
+                );
         }
 
         $submission = RequirementSubmission::create([
             'requirement_id' => $requirement->id,
             'submitted_by' => $user->id,
-            'submission_text' => $validated['submission_text'] ?? null,
+            'submission_text' =>
+                $validated['submission_text'] ?? null,
             'file_path' => $filePath,
             'status' => 'Submitted',
             'submitted_at' => now(),
@@ -112,8 +175,10 @@ class RequirementSubmissionController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Requirement submitted successfully.',
-            'submission' => new RequirementSubmissionResource($submission)
+            'message' =>
+                'Requirement submitted successfully.',
+            'submission' =>
+                new RequirementSubmissionResource($submission)
         ], 201);
     }
 
@@ -121,7 +186,8 @@ class RequirementSubmissionController extends Controller
     {
         if ($request->user()->role !== 'admin') {
             return response()->json([
-                'message' => 'Only admins can view all submissions.'
+                'message' =>
+                    'Only admins can view all submissions.'
             ], 403);
         }
 
@@ -131,26 +197,53 @@ class RequirementSubmissionController extends Controller
         ]);
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->where(
+                'status',
+                $request->status
+            );
         }
 
         if ($request->filled('search')) {
+
             $search = $request->search;
 
             $query->where(function ($q) use ($search) {
-                $q->where('submission_text', 'like', "%{$search}%")
-                    ->orWhereHas('submitter', function ($userQuery) use ($search) {
+
+                $q->where(
+                    'submission_text',
+                    'like',
+                    "%{$search}%"
+                )
+
+                ->orWhereHas(
+                    'submitter',
+                    function ($userQuery) use ($search) {
+
                         $userQuery
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('requirement', function ($requirementQuery) use ($search) {
+                            ->where(
+                                'name',
+                                'like',
+                                "%{$search}%"
+                            )
+                            ->orWhere(
+                                'email',
+                                'like',
+                                "%{$search}%"
+                            );
+                    }
+                )
+
+                ->orWhereHas(
+                    'requirement',
+                    function ($requirementQuery) use ($search) {
+
                         $requirementQuery->where(
                             'name',
                             'like',
                             "%{$search}%"
                         );
-                    });
+                    }
+                );
             });
         }
 
@@ -158,7 +251,9 @@ class RequirementSubmissionController extends Controller
             ->latest()
             ->paginate(10);
 
-        return RequirementSubmissionResource::collection($submissions);
+        return RequirementSubmissionResource::collection(
+            $submissions
+        );
     }
 
     public function verify(
@@ -167,13 +262,15 @@ class RequirementSubmissionController extends Controller
     ) {
         if ($request->user()->role !== 'admin') {
             return response()->json([
-                'message' => 'Only admins can verify submissions.'
+                'message' =>
+                    'Only admins can verify submissions.'
             ], 403);
         }
 
         if ($submission->status === 'Verified') {
             return response()->json([
-                'message' => 'Submission is already verified.'
+                'message' =>
+                    'Submission is already verified.'
             ], 422);
         }
 
@@ -194,8 +291,10 @@ class RequirementSubmissionController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Submission verified successfully.',
-            'submission' => new RequirementSubmissionResource($submission)
+            'message' =>
+                'Submission verified successfully.',
+            'submission' =>
+                new RequirementSubmissionResource($submission)
         ]);
     }
 
@@ -205,7 +304,8 @@ class RequirementSubmissionController extends Controller
     ) {
         if ($request->user()->role !== 'admin') {
             return response()->json([
-                'message' => 'Only admins can reject submissions.'
+                'message' =>
+                    'Only admins can reject submissions.'
             ], 403);
         }
 
@@ -220,14 +320,67 @@ class RequirementSubmissionController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Submission rejected successfully.',
-            'submission' => new RequirementSubmissionResource($submission)
+            'message' =>
+                'Submission rejected successfully.',
+            'submission' =>
+                new RequirementSubmissionResource($submission)
         ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | View Submission File
+    |--------------------------------------------------------------------------
+    */
+
+    public function file(
+        Request $request,
+        RequirementSubmission $submission
+    ) {
+        $user = $request->user();
+
+        /*
+        | Admins can view any submission file.
+        | Normal users can only view their own file.
+        */
+
+        if (
+            $user->role !== 'admin' &&
+            (int) $submission->submitted_by !== (int) $user->id
+        ) {
+            return response()->json([
+                'message' =>
+                    'You are not authorized to view this file.'
+            ], 403);
+        }
+
+        if (!$submission->file_path) {
+            return response()->json([
+                'message' =>
+                    'No file was submitted.'
+            ], 404);
+        }
+
+        if (
+            !Storage::disk('public')->exists(
+                $submission->file_path
+            )
+        ) {
+            return response()->json([
+                'message' =>
+                    'File not found on the server.'
+            ], 404);
+        }
+
+        return Storage::disk('public')->response(
+            $submission->file_path
+        );
     }
 
     private function checkTaskCompletion($task): void
     {
-        $requiredRequirements = $task->requirements()
+        $requiredRequirements = $task
+            ->requirements()
             ->where('is_required', true)
             ->get();
 
@@ -236,7 +389,9 @@ class RequirementSubmissionController extends Controller
         }
 
         foreach ($requiredRequirements as $requirement) {
-            $verified = $requirement->submissions()
+
+            $verified = $requirement
+                ->submissions()
                 ->where('status', 'Verified')
                 ->exists();
 
