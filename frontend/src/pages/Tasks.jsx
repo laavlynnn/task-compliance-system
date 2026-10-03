@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -6,258 +6,357 @@ import { useAuth } from "../context/AuthContext";
 export default function Tasks() {
   const { user } = useAuth();
 
+  const [activeStatus, setActiveStatus] = useState(null);
   const [tasks, setTasks] = useState([]);
-  const [search, setSearch] = useState("");
-  const [searchValue, setSearchValue] = useState("");
-  const [status, setStatus] = useState("");
-  const [page, setPage] = useState(1);
-
-  const [pagination, setPagination] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchTasks = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await api.get("/tasks", {
-        params: {
-          search: search || undefined,
-          status: status || undefined,
-          page,
-        },
-      });
-
-      setTasks(response.data.data);
-      setPagination(response.data.meta);
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Unable to load tasks."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const statusOptions = [
+    {
+      key: "all",
+      title: "All Tasks",
+      description: "View all your assigned tasks.",
+      icon: "📋",
+    },
+    {
+      key: "Pending",
+      title: "Pending",
+      description: "Tasks that have not been started yet.",
+      icon: "🕐",
+    },
+    {
+      key: "In Progress",
+      title: "In Progress",
+      description: "Tasks that are currently being worked on.",
+      icon: "🔄",
+    },
+    {
+      key: "Completed",
+      title: "Completed",
+      description: "Tasks that have already been finished.",
+      icon: "✓",
+    },
+    {
+      key: "Overdue",
+      title: "Overdue",
+      description: "Tasks that have passed their deadline.",
+      icon: "⚠",
+    },
+  ];
 
   useEffect(() => {
-    fetchTasks();
-  }, [page, search, status]);
-
-  const handleSearch = (event) => {
-    event.preventDefault();
-
-    setPage(1);
-    setSearch(searchValue);
-  };
-
-  const handleDelete = async (taskId) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this task?"
-    );
-
-    if (!confirmed) {
+    if (!activeStatus) {
       return;
     }
 
-    try {
-      await api.delete(`/tasks/${taskId}`);
+    const loadTasks = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-      await fetchTasks();
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Unable to delete task."
+        const response = await api.get("/tasks", {
+          params: {
+            page: 1,
+            per_page: 100,
+          },
+        });
+
+        setTasks(response.data.data || []);
+      } catch (error) {
+        setError(
+          error.response?.data?.message ||
+            "Unable to load tasks."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTasks();
+  }, [activeStatus]);
+
+  const filteredTasks = useMemo(() => {
+    let filtered = [...tasks];
+
+    if (activeStatus && activeStatus !== "all") {
+      filtered = filtered.filter(
+        (task) => task.status === activeStatus
       );
+    }
+
+    if (searchTerm.trim()) {
+      const keyword = searchTerm.toLowerCase().trim();
+
+      filtered = filtered.filter((task) => {
+        const title = task.title?.toLowerCase() || "";
+        const description =
+          task.description?.toLowerCase() || "";
+        const status = task.status?.toLowerCase() || "";
+
+        return (
+          title.includes(keyword) ||
+          description.includes(keyword) ||
+          status.includes(keyword)
+        );
+      });
+    }
+
+    return filtered;
+  }, [tasks, activeStatus, searchTerm]);
+
+  const getStatusClass = (status) => {
+    if (status === "Completed") {
+      return "status-completed";
+    }
+
+    if (status === "In Progress") {
+      return "status-progress";
+    }
+
+    if (status === "Overdue") {
+      return "status-overdue";
+    }
+
+    return "status-pending";
+  };
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setSearchTerm("");
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSearch();
     }
   };
 
+  const handleSelectStatus = (status) => {
+    setActiveStatus(status);
+    setSearchInput("");
+    setSearchTerm("");
+    setError("");
+  };
+
+  const handleBack = () => {
+    setActiveStatus(null);
+    setTasks([]);
+    setSearchInput("");
+    setSearchTerm("");
+    setError("");
+  };
+
+  const getCurrentCategory = () => {
+    return statusOptions.find(
+      (option) => option.key === activeStatus
+    );
+  };
+
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1>Tasks</h1>
+    <main className="tasks-main">
+      <div className="tasks-container">
 
-          <p>
-            {user?.role === "admin"
-              ? "Manage and assign tasks."
-              : "View your assigned tasks."}
-          </p>
-        </div>
+        {!activeStatus && (
+          <>
+            <div className="tasks-heading">
+              <h1>Tasks</h1>
+              <p>
+                Choose a task category to view your assignments.
+              </p>
+            </div>
 
-        {user?.role === "admin" && (
-          <Link
-            to="/tasks/create"
-            className="primary-button"
-          >
-            Create Task
-          </Link>
+            <div className="tasks-options">
+              {statusOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className="tasks-option"
+                  onClick={() =>
+                    handleSelectStatus(option.key)
+                  }
+                >
+                  <div className="tasks-option-icon">
+                    {option.icon}
+                  </div>
+
+                  <div className="tasks-option-content">
+                    <h2>{option.title}</h2>
+                    <p>{option.description}</p>
+                  </div>
+
+                  <span className="tasks-option-arrow">
+                    →
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {user?.role === "admin" && (
+              <div className="tasks-create-section">
+                <Link
+                  to="/tasks/create"
+                  className="primary-button"
+                >
+                  ＋ Create New Task
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+
+        {activeStatus && (
+          <>
+            <button
+              type="button"
+              className="tasks-back-button"
+              onClick={handleBack}
+            >
+              ← Back to Tasks
+            </button>
+
+            <div className="tasks-heading">
+              <h1>
+                {getCurrentCategory()?.title}
+              </h1>
+
+              <p>
+                {getCurrentCategory()?.description}
+              </p>
+            </div>
+
+            <div className="tasks-search">
+              <span className="tasks-search-icon">
+                🔍
+              </span>
+
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchInput}
+                onChange={(e) =>
+                  setSearchInput(e.target.value)
+                }
+                onKeyDown={handleSearchKeyDown}
+              />
+
+              <button
+                type="button"
+                className="tasks-search-button"
+                onClick={handleSearch}
+              >
+                Search
+              </button>
+
+              {searchInput && (
+                <button
+                  type="button"
+                  className="tasks-search-clear"
+                  onClick={handleClearSearch}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {searchTerm && (
+              <div className="tasks-search-result">
+                Showing results for:
+                <strong> "{searchTerm}"</strong>
+              </div>
+            )}
+
+            {error && (
+              <div className="error-message">
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="loading">
+                Loading tasks...
+              </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="empty-state">
+                <h3>
+                  {searchTerm
+                    ? "No matching tasks"
+                    : "No tasks found"}
+                </h3>
+
+                <p>
+                  {searchTerm
+                    ? "Try a different search term."
+                    : "There are no tasks in this category yet."}
+                </p>
+              </div>
+            ) : (
+              <div className="task-list">
+                {filteredTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="task-card"
+                  >
+                    <div className="task-card-content">
+                      <div>
+                        <h2>{task.title}</h2>
+
+                        <p>
+                          {task.description ||
+                            "No description provided."}
+                        </p>
+
+                        <p>
+                          <strong>Deadline:</strong>{" "}
+                          {new Date(
+                            task.deadline
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+
+                      <span
+                        className={
+                          "status " +
+                          getStatusClass(task.status)
+                        }
+                      >
+                        {task.status}
+                      </span>
+                    </div>
+
+                    <div className="task-actions">
+                      <Link
+                        to={"/tasks/" + task.id}
+                        className="primary-button"
+                      >
+                        View Task
+                      </Link>
+
+                      {user?.role === "admin" && (
+                        <Link
+                          to={"/tasks/" + task.id + "/edit"}
+                          className="secondary-button"
+                        >
+                          Edit
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
-
-      <form
-        className="filter-bar"
-        onSubmit={handleSearch}
-      >
-        <input
-          type="text"
-          placeholder="Search tasks..."
-          value={searchValue}
-          onChange={(event) =>
-            setSearchValue(event.target.value)
-          }
-        />
-
-        <select
-          value={status}
-          onChange={(event) => {
-            setStatus(event.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">
-            All Status
-          </option>
-
-          <option value="Pending">
-            Pending
-          </option>
-
-          <option value="In Progress">
-            In Progress
-          </option>
-
-          <option value="Completed">
-            Completed
-          </option>
-
-          <option value="Overdue">
-            Overdue
-          </option>
-        </select>
-
-        <button
-          type="submit"
-          className="primary-button"
-        >
-          Search
-        </button>
-      </form>
-
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="loading">
-          Loading tasks...
-        </div>
-      ) : tasks.length === 0 ? (
-        <div className="empty-state">
-          No tasks found.
-        </div>
-      ) : (
-        <div className="task-list">
-          {tasks.map((task) => (
-            <div
-              className="task-card"
-              key={task.id}
-            >
-              <div className="task-card-content">
-                <div>
-                  <h2>{task.title}</h2>
-
-                  <p>{task.description}</p>
-
-                  <p>
-                    <strong>Deadline:</strong>{" "}
-                    {new Date(
-                      task.deadline
-                    ).toLocaleDateString()}
-                  </p>
-
-                  {user?.role === "admin" &&
-                    task.assigned_user && (
-                      <p>
-                        <strong>
-                          Assigned to:
-                        </strong>{" "}
-                        {task.assigned_user.name}
-                      </p>
-                    )}
-                </div>
-
-                <span
-                  className={`status status-${task.status
-                    .toLowerCase()
-                    .replace(" ", "-")}`}
-                >
-                  {task.status}
-                </span>
-              </div>
-
-              <div className="task-actions">
-                <Link
-                  to={`/tasks/${task.id}`}
-                  className="secondary-button"
-                >
-                  View Details
-                </Link>
-
-                {user?.role === "admin" && (
-                  <>
-                    <Link
-                      to={`/tasks/${task.id}/edit`}
-                      className="secondary-button"
-                    >
-                      Edit
-                    </Link>
-
-                    <button
-                      className="danger-button"
-                      onClick={() =>
-                        handleDelete(task.id)
-                      }
-                    >
-                      Delete
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {pagination.last_page > 1 && (
-        <div className="pagination">
-          <button
-            disabled={!pagination.prev_page_url}
-            onClick={() =>
-              setPage(page - 1)
-            }
-          >
-            Previous
-          </button>
-
-          <span>
-            Page {pagination.current_page} of{" "}
-            {pagination.last_page}
-          </span>
-
-          <button
-            disabled={!pagination.next_page_url}
-            onClick={() =>
-              setPage(page + 1)
-            }
-          >
-            Next
-          </button>
-        </div>
-      )}
-    </div>
+    </main>
   );
 }

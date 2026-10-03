@@ -90,6 +90,7 @@ export default function Users() {
     });
 
     setError("");
+    setSuccess("");
   };
 
   const handleSubmit = async (event) => {
@@ -197,7 +198,7 @@ export default function Users() {
         </div>
       )}
 
-      {editingUser && (
+      {editingUser ? (
         <div className="form-card user-form-card">
           <h2>Edit User</h2>
 
@@ -242,9 +243,7 @@ export default function Users() {
               </option>
             </select>
 
-            <label>
-              New Password
-            </label>
+            <label>New Password</label>
 
             <input
               type="password"
@@ -276,137 +275,143 @@ export default function Users() {
             </div>
           </form>
         </div>
-      )}
-
-      <form
-        className="filter-bar"
-        onSubmit={handleSearch}
-      >
-        <input
-          type="text"
-          placeholder="Search name or email..."
-          value={search}
-          onChange={(event) =>
-            setSearch(event.target.value)
-          }
-        />
-
-        <select
-          value={role}
-          onChange={(event) => {
-            setRole(event.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">
-            All Roles
-          </option>
-
-          <option value="admin">
-            Admin
-          </option>
-
-          <option value="user">
-            User
-          </option>
-        </select>
-
-        <button
-          type="submit"
-          className="primary-button"
-        >
-          Search
-        </button>
-      </form>
-
-      {loading ? (
-        <div className="loading">
-          Loading users...
-        </div>
-      ) : users.length === 0 ? (
-        <div className="empty-state">
-          No users found.
-        </div>
       ) : (
-        <div className="users-table-container">
-          <table className="users-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td>{user.name}</td>
-
-                  <td>{user.email}</td>
-
-                  <td>
-                    <span
-                      className={`role-badge role-${user.role}`}
-                    >
-                      {user.role}
-                    </span>
-                  </td>
-
-                  <td>
-                    <div className="table-actions">
-                      <button
-                        className="secondary-button"
-                        onClick={() =>
-                          handleEdit(user)
-                        }
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        className="danger-button"
-                        onClick={() =>
-                          handleDelete(user.id)
-                        }
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {pagination.last_page > 1 && (
-        <div className="pagination">
-          <button
-            disabled={!pagination.prev_page_url}
-            onClick={() =>
-              setPage(page - 1)
-            }
+        <>
+          <form
+            className="filter-bar"
+            onSubmit={handleSearch}
           >
-            Previous
-          </button>
+            <input
+              type="text"
+              placeholder="Search name or email..."
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+            />
 
-          <span>
-            Page {pagination.current_page} of{" "}
-            {pagination.last_page}
-          </span>
+            <select
+              value={role}
+              onChange={(event) => {
+                setRole(event.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">
+                All Roles
+              </option>
 
-          <button
-            disabled={!pagination.next_page_url}
-            onClick={() =>
-              setPage(page + 1)
-            }
-          >
-            Next
-          </button>
-        </div>
+              <option value="admin">
+                Admin
+              </option>
+
+              <option value="user">
+                User
+              </option>
+            </select>
+
+            <button
+              type="submit"
+              className="primary-button"
+            >
+              Search
+            </button>
+          </form>
+
+          {loading ? (
+            <div className="loading">
+              Loading users...
+            </div>
+          ) : users.length === 0 ? (
+            <div className="empty-state">
+              No users found.
+            </div>
+          ) : (
+            <div className="users-table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td>{user.name}</td>
+
+                      <td>{user.email}</td>
+
+                      <td>
+                        <span
+                          className={`role-badge role-${user.role}`}
+                        >
+                          {user.role}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div className="table-actions">
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() =>
+                              handleEdit(user)
+                            }
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="danger-button"
+                            onClick={() =>
+                              handleDelete(user.id)
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {pagination.last_page > 1 && (
+            <div className="pagination">
+              <button
+                type="button"
+                disabled={!pagination.prev_page_url}
+                onClick={() =>
+                  setPage(page - 1)
+                }
+              >
+                Previous
+              </button>
+
+              <span>
+                Page {pagination.current_page} of{" "}
+                {pagination.last_page}
+              </span>
+
+              <button
+                type="button"
+                disabled={!pagination.next_page_url}
+                onClick={() =>
+                  setPage(page + 1)
+                }
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

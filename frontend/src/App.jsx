@@ -1,17 +1,4 @@
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
-
-import {
-  AuthProvider,
-  useAuth,
-} from "./context/AuthContext";
-
-import ProtectedRoute from "./components/ProtectedRoute";
-import Navbar from "./components/Navbar";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -22,139 +9,129 @@ import TaskForm from "./pages/TaskForm";
 import RequirementSubmit from "./pages/RequirementSubmit";
 import Submissions from "./pages/Submissions";
 import Users from "./pages/Users";
+import Settings from "./pages/Settings";
 
-function AppRoutes() {
-  const { user } = useAuth();
+import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
 
+function App() {
   return (
-    <>
-      {user && <Navbar />}
+    <Routes>
+      <Route
+        path="/login"
+        element={<Login />}
+      />
 
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <Navigate
-              to={user ? "/dashboard" : "/login"}
-              replace
-            />
-          }
-        />
+      <Route
+        path="/register"
+        element={<Register />}
+      />
 
-        <Route
-          path="/login"
-          element={
-            user ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Login />
-            )
-          }
-        />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Navbar />
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/register"
-          element={
-            user ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Register />
-            )
-          }
-        />
+      <Route
+        path="/tasks"
+        element={
+          <ProtectedRoute>
+            <Navbar />
+            <Tasks />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/tasks/create"
+        element={
+          <ProtectedRoute adminOnly>
+            <Navbar />
+            <TaskForm />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/tasks"
-          element={
-            <ProtectedRoute>
-              <Tasks />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/tasks/:id/edit"
+        element={
+          <ProtectedRoute adminOnly>
+            <Navbar />
+            <TaskForm />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/tasks/create"
-          element={
-            <ProtectedRoute adminOnly>
-              <TaskForm />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/tasks/:id"
+        element={
+          <ProtectedRoute>
+            <Navbar />
+            <TaskDetails />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/tasks/:id/edit"
-          element={
-            <ProtectedRoute adminOnly>
-              <TaskForm />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/requirements/:id/submit"
+        element={
+          <ProtectedRoute>
+            <Navbar />
+            <RequirementSubmit />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/requirements/:id/submit"
-          element={
-            <ProtectedRoute>
-              <RequirementSubmit />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/submissions"
+        element={
+          <ProtectedRoute adminOnly>
+            <Navbar />
+            <Submissions />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/submissions"
-          element={
-            <ProtectedRoute adminOnly>
-              <Submissions />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute adminOnly>
+            <Navbar />
+            <Users />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute adminOnly>
-              <Users />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Navbar />
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/tasks/:id"
-          element={
-            <ProtectedRoute>
-              <TaskDetails />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/"
+        element={
+          <Navigate to="/dashboard" replace />
+        }
+      />
 
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to={user ? "/dashboard" : "/login"}
-              replace
-            />
-          }
-        />
-      </Routes>
-    </>
+      <Route
+        path="*"
+        element={
+          <Navigate to="/dashboard" replace />
+        }
+      />
+    </Routes>
   );
 }
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
-  );
-}
+export default App;
