@@ -14,6 +14,8 @@ export default function RequirementSubmit() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [viewingFile, setViewingFile] = useState(false);
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -38,10 +40,11 @@ export default function RequirementSubmit() {
             submissionResponse.data.submission;
 
           setSubmission(currentSubmission);
+
           setText(currentSubmission.submission_text || "");
-        } catch (error) {
-          if (error.response?.status !== 404) {
-            throw error;
+        } catch (submissionError) {
+          if (submissionError.response?.status !== 404) {
+            throw submissionError;
           }
         }
       } catch (error) {
@@ -57,6 +60,55 @@ export default function RequirementSubmit() {
     loadRequirement();
   }, [id]);
 
+  const handleViewFile = async () => {
+    if (!submission?.id) {
+      setError("No submission file is available.");
+      return;
+    }
+
+    if (!submission?.file_path) {
+      setError("No file was submitted.");
+      return;
+    }
+
+    setError("");
+    setViewingFile(true);
+
+    try {
+      const response = await api.get(
+        `/submissions/${submission.id}/file`,
+        {
+          responseType: "blob",
+        }
+      );
+
+      const contentType =
+        response.headers["content-type"] ||
+        "application/octet-stream";
+
+      const blob = new Blob([response.data], {
+        type: contentType,
+      });
+
+      const fileUrl = window.URL.createObjectURL(blob);
+
+      window.open(fileUrl, "_blank");
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(fileUrl);
+      }, 60000);
+    } catch (error) {
+      console.error("Unable to view file:", error);
+
+      setError(
+        error.response?.data?.message ||
+          "Unable to open the submitted file."
+      );
+    } finally {
+      setViewingFile(false);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -64,7 +116,9 @@ export default function RequirementSubmit() {
     setSuccess("");
 
     if (!text.trim() && !file) {
-      setError("Please provide text or select a file.");
+      setError(
+        "Please provide submission text or select a file."
+      );
       return;
     }
 
@@ -74,7 +128,10 @@ export default function RequirementSubmit() {
       const formData = new FormData();
 
       if (text.trim()) {
-        formData.append("submission_text", text);
+        formData.append(
+          "submission_text",
+          text.trim()
+        );
       }
 
       if (file) {
@@ -91,9 +148,14 @@ export default function RequirementSubmit() {
         }
       );
 
-      setSubmission(response.data.submission);
+      const updatedSubmission =
+        response.data.submission;
+
+      setSubmission(updatedSubmission);
+
       setSuccess(
-        "Requirement submitted successfully."
+        response.data.message ||
+          "Requirement submitted successfully."
       );
 
       setFile(null);
@@ -102,15 +164,20 @@ export default function RequirementSubmit() {
 
       setTimeout(() => {
         navigate(
-          `/tasks/${response.data.submission.requirement.task_id}`
+          `/tasks/${updatedSubmission.requirement.task_id}`
         );
       }, 1000);
     } catch (error) {
       const errors = error.response?.data?.errors;
 
       if (errors) {
-        const firstError = Object.values(errors)[0]?.[0];
-        setError(firstError || "Please check your submission.");
+        const firstError =
+          Object.values(errors)[0]?.[0];
+
+        setError(
+          firstError ||
+            "Please check your submission."
+        );
       } else {
         setError(
           error.response?.data?.message ||
@@ -182,6 +249,7 @@ export default function RequirementSubmit() {
         {submission && (
           <div className="submission-status">
             <strong>Current Status:</strong>{" "}
+
             <span
               className={`status status-${submission.status.toLowerCase()}`}
             >
@@ -190,16 +258,38 @@ export default function RequirementSubmit() {
 
             {submission.status === "Verified" && (
               <p>
-                Your submission has been verified by the
-                administrator.
+                Your submission has been verified
+                by the administrator.
               </p>
             )}
 
             {submission.status === "Rejected" && (
               <p>
-                Your submission was rejected. You may
-                submit again.
+                Your submission was rejected.
+                You may edit your submission and
+                submit it again.
               </p>
+            )}
+
+            {submission.status === "Submitted" && (
+              <p>
+                Your submission is waiting for
+                administrator review.
+              </p>
+            )}
+
+            {submission.file_path && (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleViewFile}
+                disabled={viewingFile}
+                style={{ marginTop: "10px" }}
+              >
+                {viewingFile
+                  ? "Opening File..."
+                  : "View File"}
+              </button>
             )}
           </div>
         )}
@@ -209,9 +299,12 @@ export default function RequirementSubmit() {
             onSubmit={handleSubmit}
             className="submission-form"
           >
-            <label>Submission Text</label>
+            <label htmlFor="submissionText">
+              Submission Text
+            </label>
 
             <textarea
+              id="submissionText"
               value={text}
               onChange={(event) =>
                 setText(event.target.value)
@@ -220,19 +313,24 @@ export default function RequirementSubmit() {
               rows="6"
             />
 
-            <label>Upload File</label>
+            <label htmlFor="submissionFile">
+              Upload File
+            </label>
 
             <input
+              id="submissionFile"
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
               onChange={(event) =>
-                setFile(event.target.files[0] || null)
+                setFile(
+                  event.target.files[0] || null
+                )
               }
             />
 
             <p className="file-help">
-              Accepted: PDF, JPG, JPEG, PNG, DOC, DOCX.
-              Maximum size: 5MB.
+              Accepted: PDF, JPG, JPEG, PNG, DOC,
+              DOCX. Maximum size: 5MB.
             </p>
 
             <div className="form-actions">
