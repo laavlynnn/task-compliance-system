@@ -11,6 +11,7 @@ export default function Submissions() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [viewingFile, setViewingFile] = useState(null);
 
   const fetchSubmissions = async () => {
     setLoading(true);
@@ -25,9 +26,11 @@ export default function Submissions() {
         },
       });
 
-      setSubmissions(response.data.data);
-      setPagination(response.data.meta);
+      setSubmissions(response.data.data || []);
+      setPagination(response.data.meta || {});
     } catch (error) {
+      console.error("Unable to load submissions:", error);
+
       setError(
         error.response?.data?.message ||
           "Unable to load submissions."
@@ -43,8 +46,112 @@ export default function Submissions() {
 
   const handleSearch = (event) => {
     event.preventDefault();
+
     setPage(1);
     fetchSubmissions();
+  };
+
+  const handleViewFile = async (submission) => {
+    if (!submission?.id) {
+      setError("Unable to identify the submission.");
+      return;
+    }
+
+    if (!submission?.file_path) {
+      setError("No file was submitted.");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setViewingFile(submission.id);
+
+    // Open the tab immediately so the browser does not block it
+    const newWindow = window.open("", "_blank");
+
+    if (!newWindow) {
+      setError(
+        "Please allow pop-ups for this website to view the file."
+      );
+      setViewingFile(null);
+      return;
+    }
+
+    newWindow.document.write(`
+      <html>
+        <head>
+          <title>Opening File...</title>
+        </head>
+        <body
+          style="
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+          "
+        >
+          <h2>Opening file...</h2>
+        </body>
+      </html>
+    `);
+
+    try {
+      const response = await api.get(
+        `/submissions/${submission.id}/file`,
+        {
+          responseType: "blob",
+        }
+      );
+
+      const contentType =
+        response.headers["content-type"] ||
+        "application/octet-stream";
+
+      const blob = new Blob([response.data], {
+        type: contentType,
+      });
+
+      const fileUrl = window.URL.createObjectURL(blob);
+
+      newWindow.location.href = fileUrl;
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(fileUrl);
+      }, 60000);
+    } catch (error) {
+      console.error(
+        "Unable to view submission file:",
+        error
+      );
+
+      // Try to read Laravel's JSON error message
+      let message =
+        "Unable to open the submitted file.";
+
+      const responseData = error.response?.data;
+
+      if (responseData instanceof Blob) {
+        try {
+          const text = await responseData.text();
+          const json = JSON.parse(text);
+
+          if (json.message) {
+            message = json.message;
+          }
+        } catch {
+          // Keep the default message
+        }
+      } else if (error.response?.data?.message) {
+        message = error.response.data.message;
+      }
+
+      setError(message);
+
+      newWindow.close();
+    } finally {
+      setViewingFile(null);
+    }
   };
 
   const handleVerify = async (id) => {
@@ -56,6 +163,9 @@ export default function Submissions() {
       return;
     }
 
+    setError("");
+    setSuccess("");
+
     try {
       await api.put(`/submissions/${id}/verify`);
 
@@ -65,6 +175,11 @@ export default function Submissions() {
 
       await fetchSubmissions();
     } catch (error) {
+      console.error(
+        "Unable to verify submission:",
+        error
+      );
+
       setError(
         error.response?.data?.message ||
           "Unable to verify submission."
@@ -81,6 +196,9 @@ export default function Submissions() {
       return;
     }
 
+    setError("");
+    setSuccess("");
+
     try {
       await api.put(`/submissions/${id}/reject`);
 
@@ -90,6 +208,11 @@ export default function Submissions() {
 
       await fetchSubmissions();
     } catch (error) {
+      console.error(
+        "Unable to reject submission:",
+        error
+      );
+
       setError(
         error.response?.data?.message ||
           "Unable to reject submission."
@@ -98,13 +221,13 @@ export default function Submissions() {
   };
 
   const getStatusClass = (submissionStatus) => {
+    if (!submissionStatus) {
+      return "status";
+    }
+
     return `status status-${submissionStatus
       .toLowerCase()
-      .replace(" ", "-")}`;
-  };
-
-  const getFileUrl = (filePath) => {
-    return `http://127.0.0.1:8000/storage/${filePath}`;
+      .replace(/\s+/g, "-")}`;
   };
 
   return (
@@ -112,6 +235,7 @@ export default function Submissions() {
       <div className="page-header">
         <div>
           <h1>Submissions</h1>
+
           <p>
             Review and verify user requirement
             submissions.
@@ -140,9 +264,15 @@ export default function Submissions() {
           }}
         >
           <option value="">All Status</option>
-          <option value="Submitted">Submitted</option>
-          <option value="Verified">Verified</option>
-          <option value="Rejected">Rejected</option>
+          <option value="Submitted">
+            Submitted
+          </option>
+          <option value="Verified">
+            Verified
+          </option>
+          <option value="Rejected">
+            Rejected
+          </option>
         </select>
 
         <button
@@ -230,16 +360,21 @@ export default function Submissions() {
                   <strong>Attached File:</strong>
 
                   <div className="file-actions">
-                    <a
-                      href={getFileUrl(
-                        submission.file_path
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
                       className="primary-button"
+                      onClick={() =>
+                        handleViewFile(submission)
+                      }
+                      disabled={
+                        viewingFile ===
+                        submission.id
+                      }
                     >
-                      View File
-                    </a>
+                      {viewingFile === submission.id
+                        ? "Opening File..."
+                        : "View File"}
+                    </button>
 
                     <span>
                       {submission.file_path}
@@ -249,22 +384,30 @@ export default function Submissions() {
               )}
 
               <div className="task-actions">
-                {submission.status !== "Verified" && (
+                {submission.status !==
+                  "Verified" && (
                   <button
+                    type="button"
                     className="primary-button"
                     onClick={() =>
-                      handleVerify(submission.id)
+                      handleVerify(
+                        submission.id
+                      )
                     }
                   >
                     Verify
                   </button>
                 )}
 
-                {submission.status !== "Rejected" && (
+                {submission.status !==
+                  "Rejected" && (
                   <button
+                    type="button"
                     className="danger-button"
                     onClick={() =>
-                      handleReject(submission.id)
+                      handleReject(
+                        submission.id
+                      )
                     }
                   >
                     Reject
@@ -279,8 +422,15 @@ export default function Submissions() {
       {pagination.last_page > 1 && (
         <div className="pagination">
           <button
-            disabled={!pagination.prev_page_url}
-            onClick={() => setPage(page - 1)}
+            type="button"
+            disabled={
+              !pagination.prev_page_url
+            }
+            onClick={() =>
+              setPage((currentPage) =>
+                Math.max(currentPage - 1, 1)
+              )
+            }
           >
             Previous
           </button>
@@ -291,8 +441,15 @@ export default function Submissions() {
           </span>
 
           <button
-            disabled={!pagination.next_page_url}
-            onClick={() => setPage(page + 1)}
+            type="button"
+            disabled={
+              !pagination.next_page_url
+            }
+            onClick={() =>
+              setPage((currentPage) =>
+                currentPage + 1
+              )
+            }
           >
             Next
           </button>
