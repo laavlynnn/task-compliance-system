@@ -91,6 +91,12 @@ class RequirementSubmissionController extends Controller
             ], 422);
         }
 
+        if ($existing && $existing->status === 'Submitted') {
+            return response()->json([
+                'message' => 'Your submission is awaiting administrator review.'
+            ], 422);
+        }
+
         /*
         |--------------------------------------------------------------------------
         | Resubmit Rejected Submission
@@ -105,11 +111,11 @@ class RequirementSubmissionController extends Controller
 
                 if (
                     $existing->file_path &&
-                    Storage::disk('public')->exists(
+                    Storage::disk('submission_files')->exists(
                         $existing->file_path
                     )
                 ) {
-                    Storage::disk('public')->delete(
+                    Storage::disk('submission_files')->delete(
                         $existing->file_path
                     );
                 }
@@ -126,6 +132,7 @@ class RequirementSubmissionController extends Controller
                     $validated['submission_text'] ?? null,
                 'file_path' => $filePath,
                 'status' => 'Submitted',
+                'rejection_reason' => null,
                 'submitted_at' => now(),
                 'verified_at' => null,
             ]);
@@ -166,6 +173,7 @@ class RequirementSubmissionController extends Controller
                 $validated['submission_text'] ?? null,
             'file_path' => $filePath,
             'status' => 'Submitted',
+            'rejection_reason' => null,
             'submitted_at' => now(),
         ]);
 
@@ -267,15 +275,15 @@ class RequirementSubmissionController extends Controller
             ], 403);
         }
 
-        if ($submission->status === 'Verified') {
+        if ($submission->status !== 'Submitted') {
             return response()->json([
-                'message' =>
-                    'Submission is already verified.'
+                'message' => 'Only submitted items can be verified.'
             ], 422);
         }
 
         $submission->update([
             'status' => 'Verified',
+            'rejection_reason' => null,
             'verified_at' => now(),
         ]);
 
@@ -309,8 +317,19 @@ class RequirementSubmissionController extends Controller
             ], 403);
         }
 
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+
+        if ($submission->status !== 'Submitted') {
+            return response()->json([
+                'message' => 'Only submitted items can be rejected.'
+            ], 422);
+        }
+
         $submission->update([
             'status' => 'Rejected',
+            'rejection_reason' => trim($validated['reason']),
             'verified_at' => null,
         ]);
 
@@ -362,7 +381,7 @@ class RequirementSubmissionController extends Controller
         }
 
         if (
-            !Storage::disk('public')->exists(
+            !Storage::disk('submission_files')->exists(
                 $submission->file_path
             )
         ) {
@@ -372,7 +391,7 @@ class RequirementSubmissionController extends Controller
             ], 404);
         }
 
-        return Storage::disk('public')->response(
+        return Storage::disk('submission_files')->response(
             $submission->file_path
         );
     }

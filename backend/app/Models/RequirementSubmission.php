@@ -16,6 +16,7 @@ class RequirementSubmission extends Model
         'submission_text',
         'file_path',
         'status',
+        'rejection_reason',
         'submitted_at',
         'verified_at',
     ];

@@ -264,17 +264,22 @@ export default function RequirementSubmit() {
             )}
 
             {submission.status === "Rejected" && (
-              <p>
-                Your submission was rejected.
-                You may edit your submission and
-                submit it again.
-              </p>
+              <div>
+                <p>
+                  Your submission was rejected.
+                  You may correct it and submit it again.
+                </p>
+                {submission.rejection_reason && (
+                  <div className="error-message">
+                    <strong>Reason:</strong> {submission.rejection_reason}
+                  </div>
+                )}
+              </div>
             )}
 
             {submission.status === "Submitted" && (
               <p>
-                Your submission is waiting for
-                administrator review.
+                Your submission is waiting for administrator review. You cannot submit another version until it is reviewed.
               </p>
             )}
 
@@ -294,7 +299,7 @@ export default function RequirementSubmit() {
           </div>
         )}
 
-        {submission?.status !== "Verified" && (
+        {(!submission || submission.status === "Rejected") && (
           <form
             onSubmit={handleSubmit}
             className="submission-form"

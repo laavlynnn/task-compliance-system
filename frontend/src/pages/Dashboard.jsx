@@ -10,6 +10,8 @@ export default function Dashboard() {
     total_tasks: 0,
     completed_tasks: 0,
     pending_tasks: 0,
+    in_progress_tasks: 0,
+    overdue_tasks: 0,
   });
 
   const [tasks, setTasks] = useState([]);
@@ -161,6 +163,30 @@ export default function Dashboard() {
             <span>Pending</span>
             <strong>{stats.pending_tasks}</strong>
             <small>Needs attention</small>
+          </div>
+        </div>
+
+        <div className="dashboard-stat">
+          <div className="dashboard-stat-icon blue">
+            ↻
+          </div>
+
+          <div>
+            <span>In Progress</span>
+            <strong>{stats.in_progress_tasks || 0}</strong>
+            <small>Currently being worked on</small>
+          </div>
+        </div>
+
+        <div className="dashboard-stat">
+          <div className="dashboard-stat-icon orange">
+            ⚠
+          </div>
+
+          <div>
+            <span>Overdue</span>
+            <strong>{stats.overdue_tasks || 0}</strong>
+            <small>Past the deadline</small>
           </div>
         </div>
       </div>

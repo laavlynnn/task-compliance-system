@@ -188,11 +188,14 @@ export default function Submissions() {
   };
 
   const handleReject = async (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to reject this submission?"
+    const reason = window.prompt(
+      "Enter the reason for rejecting this submission:"
     );
 
-    if (!confirmed) {
+    if (reason === null) return;
+
+    if (!reason.trim()) {
+      setError("A rejection reason is required.");
       return;
     }
 
@@ -200,22 +203,18 @@ export default function Submissions() {
     setSuccess("");
 
     try {
-      await api.put(`/submissions/${id}/reject`);
+      await api.put(`/submissions/${id}/reject`, {
+        reason: reason.trim(),
+      });
 
-      setSuccess(
-        "Submission rejected successfully."
-      );
-
+      setSuccess("Submission rejected and the reason was saved.");
       await fetchSubmissions();
     } catch (error) {
-      console.error(
-        "Unable to reject submission:",
-        error
-      );
-
+      const validationErrors = error.response?.data?.errors;
       setError(
-        error.response?.data?.message ||
-          "Unable to reject submission."
+        validationErrors
+          ? Object.values(validationErrors)[0]?.[0] || "Please check the rejection reason."
+          : error.response?.data?.message || "Unable to reject submission."
       );
     }
   };
@@ -355,6 +354,13 @@ export default function Submissions() {
                 </div>
               )}
 
+              {submission.rejection_reason && (
+                <div className="error-message">
+                  <strong>Rejection reason:</strong>{" "}
+                  {submission.rejection_reason}
+                </div>
+              )}
+
               {submission.file_path && (
                 <div className="submission-file">
                   <strong>Attached File:</strong>
@@ -384,8 +390,8 @@ export default function Submissions() {
               )}
 
               <div className="task-actions">
-                {submission.status !==
-                  "Verified" && (
+                {submission.status ===
+                  "Submitted" && (
                   <button
                     type="button"
                     className="primary-button"
@@ -399,8 +405,8 @@ export default function Submissions() {
                   </button>
                 )}
 
-                {submission.status !==
-                  "Rejected" && (
+                {submission.status ===
+                  "Submitted" && (
                   <button
                     type="button"
                     className="danger-button"

@@ -10,6 +10,28 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['required', Rule::in(['admin', 'user'])],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'role' => $validated['role'],
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return response()->json([
+            'message' => 'User created successfully.',
+            'user' => $user->only(['id', 'name', 'email', 'role']),
+        ], 201);
+    }
+
     public function index(Request $request)
     {
         $query = User::query();

@@ -1,9 +1,10 @@
+
 import axios from "axios";
 
 const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
-    "https://task-compliance-api.onrender.com/api",
+    "http://127.0.0.1:8000/api",
   headers: {
     Accept: "application/json",
   },
@@ -31,7 +32,6 @@ api.interceptors.response.use(
     ) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-
       window.location.href = "/login";
     }
 

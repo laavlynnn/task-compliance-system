@@ -16,10 +16,18 @@ class TaskController extends Controller
     {
         $user = $request->user();
 
+        Task::whereDate('deadline', '<', now()->toDateString())
+            ->where('status', '!=', 'Completed')
+            ->where('status', '!=', 'Overdue')
+            ->update(['status' => 'Overdue']);
+
+        $perPage = (int) $request->input('per_page', 10);
+        $perPage = max(1, min($perPage, 100));
+
         $query = Task::with([
             'assignedUser:id,name,email',
             'creator:id,name,email',
-            'requirements'
+            'requirements.submissions'
         ]);
 
         if ($user->role === 'user') {
@@ -39,7 +47,7 @@ class TaskController extends Controller
             $query->where('status', $request->status);
         }
 
-        $tasks = $query->latest()->paginate(10);
+        $tasks = $query->latest()->paginate($perPage);
 
         return TaskResource::collection($tasks);
     }

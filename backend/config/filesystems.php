@@ -47,6 +47,16 @@ return [
             'report' => false,
         ],
 
+        // Keep submitted files private and outside the public web root.
+        // On Render, set SUBMISSION_STORAGE_PATH to the mounted persistent disk path.
+        'submission_files' => [
+            'driver' => 'local',
+            'root' => env('SUBMISSION_STORAGE_PATH', storage_path('app/public')),
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

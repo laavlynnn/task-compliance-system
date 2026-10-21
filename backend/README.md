@@ -57,3 +57,8 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+
+## References
+
+- OpenAI ChatGPT was used as an AI assistant for code review, debugging guidance, and suggested implementation changes during development. The developer should review, test, and validate all changes in the target environment before production use.

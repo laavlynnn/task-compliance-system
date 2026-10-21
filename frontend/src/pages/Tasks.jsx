@@ -10,6 +10,8 @@ export default function Tasks() {
   const [tasks, setTasks] = useState([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -56,14 +58,21 @@ export default function Tasks() {
         setLoading(true);
         setError("");
 
-        const response = await api.get("/tasks", {
-          params: {
-            page: 1,
-            per_page: 100,
-          },
+        const firstResponse = await api.get("/tasks", {
+          params: { page: 1, per_page: 100 },
         });
 
-        setTasks(response.data.data || []);
+        const allTasks = [...(firstResponse.data.data || [])];
+        const lastPage = Math.min(firstResponse.data.meta?.last_page || 1, 100);
+
+        for (let nextPage = 2; nextPage <= lastPage; nextPage += 1) {
+          const pageResponse = await api.get("/tasks", {
+            params: { page: nextPage, per_page: 100 },
+          });
+          allTasks.push(...(pageResponse.data.data || []));
+        }
+
+        setTasks(allTasks);
       } catch (error) {
         setError(
           error.response?.data?.message ||
@@ -106,6 +115,13 @@ export default function Tasks() {
     return filtered;
   }, [tasks, activeStatus, searchTerm]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / pageSize));
+  const visibleTasks = filteredTasks.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeStatus, searchTerm]);
+
   const getStatusClass = (status) => {
     if (status === "Completed") {
       return "status-completed";
@@ -123,10 +139,12 @@ export default function Tasks() {
   };
 
   const handleSearch = () => {
+    setPage(1);
     setSearchTerm(searchInput);
   };
 
   const handleClearSearch = () => {
+    setPage(1);
     setSearchInput("");
     setSearchTerm("");
   };
@@ -138,6 +156,7 @@ export default function Tasks() {
   };
 
   const handleSelectStatus = (status) => {
+    setPage(1);
     setActiveStatus(status);
     setSearchInput("");
     setSearchTerm("");
@@ -145,6 +164,7 @@ export default function Tasks() {
   };
 
   const handleBack = () => {
+    setPage(1);
     setActiveStatus(null);
     setTasks([]);
     setSearchInput("");
@@ -297,7 +317,7 @@ export default function Tasks() {
               </div>
             ) : (
               <div className="task-list">
-                {filteredTasks.map((task) => (
+                {visibleTasks.map((task) => (
                   <div
                     key={task.id}
                     className="task-card"
@@ -352,6 +372,26 @@ export default function Tasks() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {!loading && filteredTasks.length > pageSize && (
+              <div className="pagination">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  Previous
+                </button>
+                <span>Page {page} of {totalPages}</span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                >
+                  Next
+                </button>
               </div>
             )}
           </>

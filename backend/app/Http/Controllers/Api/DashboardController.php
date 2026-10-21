@@ -4,49 +4,33 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Task;
-use App\Models\RequirementSubmission;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
+        // Recalculate overdue tasks whenever the dashboard is opened.
+        // Completed tasks are never changed to Overdue.
+        Task::whereDate('deadline', '<', now()->toDateString())
+            ->where('status', '!=', 'Completed')
+            ->where('status', '!=', 'Overdue')
+            ->update(['status' => 'Overdue']);
+
         $user = $request->user();
 
-        if ($user->role === 'admin') {
-            $totalTasks = Task::count();
+        $query = Task::query();
 
-            $completedTasks = Task::where('status', 'Completed')->count();
-
-            $pendingTasks = Task::whereIn('status', [
-                'Pending',
-                'In Progress'
-            ])->count();
-
-            return response()->json([
-                'total_tasks' => $totalTasks,
-                'completed_tasks' => $completedTasks,
-                'pending_tasks' => $pendingTasks,
-            ]);
+        if ($user->role !== 'admin') {
+            $query->where('assigned_to', $user->id);
         }
 
-        $totalTasks = Task::where('assigned_to', $user->id)->count();
-
-        $completedTasks = Task::where('assigned_to', $user->id)
-            ->where('status', 'Completed')
-            ->count();
-
-        $pendingTasks = Task::where('assigned_to', $user->id)
-            ->whereIn('status', [
-                'Pending',
-                'In Progress'
-            ])
-            ->count();
-
         return response()->json([
-            'total_tasks' => $totalTasks,
-            'completed_tasks' => $completedTasks,
-            'pending_tasks' => $pendingTasks,
+            'total_tasks' => (clone $query)->count(),
+            'pending_tasks' => (clone $query)->where('status', 'Pending')->count(),
+            'in_progress_tasks' => (clone $query)->where('status', 'In Progress')->count(),
+            'completed_tasks' => (clone $query)->where('status', 'Completed')->count(),
+            'overdue_tasks' => (clone $query)->where('status', 'Overdue')->count(),
         ]);
     }
 }
